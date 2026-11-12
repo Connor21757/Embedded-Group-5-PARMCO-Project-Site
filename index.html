@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PARMCO: Phone App RP4 Motor Control</title>
+<meta name="description" content="PARMCO: a phone app that controls a Nema17 stepper motor on a Raspberry Pi 4 over Bluetooth, with encoder and IR sensor feedback.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="bar">
+<a class="wordmark" href="index.html">PAR<span>M</span>CO</a>
+<nav aria-label="Main"><ul><li><a href="index.html" aria-current="page">Home</a></li><li><a href="hardware.html">Hardware</a></li><li><a href="software.html">Software</a></li><li><a href="testing.html">Testing</a></li><li><a href="ai-process.html">AI process</a></li></ul></nav>
+</div></header>
+<main id="main">
+
+<section class="hero" aria-labelledby="t">
+<div>
+<h1 id="t">PARMCO</h1>
+<p class="sub">Phone App RP4 Motor Control</p>
+<p class="lede">An Android app talks over Bluetooth to a Raspberry Pi 4. The Pi drives a Nema17 stepper motor, reads a magnetic encoder and an IR sensor, and reports speed and angle back to the phone. A two-blade propeller on the shaft, read against a printed protractor, shows what the motor is really doing.</p>
+<dl class="facts">
+<dt>Step mode</dt><dd>Half step: 400 steps per revolution, 0.9&deg; each</dd>
+<dt>Encoder</dt><dd>AS5600, 4096 counts per revolution</dd>
+<dt>Link</dt><dd>Bluetooth RFCOMM, channel 1</dd>
+<dt>Checkpoint</dt><dd>3 of 3, then the final check</dd>
+</dl>
+</div>
+<div class="tool">
+<svg id="prot" viewBox="0 0 400 400" role="img" aria-label="Protractor with a two-blade propeller. Drag to set an angle."></svg>
+<div class="controls">
+<label for="ang-num">Angle</label>
+<input id="ang-num" type="number" min="0" max="359.9" step="0.1" value="137.0" inputmode="decimal">
+<input id="ang-rng" type="range" min="0" max="359.9" step="0.1" value="137" aria-label="Angle slider">
+</div>
+<dl class="readout" aria-live="polite">
+<dt>Target angle</dt><dd id="o-target"></dd>
+<dt>Nearest half step</dt><dd id="o-snap"></dd>
+<dt>Half steps from zero</dt><dd id="o-steps"></dd>
+<dt>Distance from target</dt><dd id="o-err"></dd>
+<dt>Encoder reading there</dt><dd id="o-enc"></dd>
+</dl>
+<p class="hint">Drag the red reference blade. The motor can only stop on a multiple of 0.9&deg;, so a 137&deg; target lands on 136.8&deg;.</p>
+</div>
+</section>
+
+<h2>What it does</h2>
+<div class="read">
+<p>The phone sends short text commands: start and stop, direction, faster and slower, a desired RPM from 10 to 100, calibrate zero, set to zero, an angle target, and logging on and off. The Pi answers about seven times a second with the IR RPM, the encoder RPM, the encoder angle and the calibration state, and writes a 100 Hz CSV log on request.</p>
+<p>Two controls give the project its character. <strong>Calibrate zero</strong> ties the encoder&rsquo;s zero to 0&deg; on the protractor. <strong>Set to zero</strong> and <strong>angle target</strong> then use the encoder to bring the reference blade to an angle, and the Pi switches the motor off once the blade is within one half step.</p>
+<p>Maintain mode, which holds a desired RPM using sensor feedback, is not part of Checkpoint 3.</p>
+</div>
+
+<h2>Parts</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Part</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td>Android phone</td><td>Runs the PARMCO app and the Bluetooth link</td></tr>
+<tr><td>Raspberry Pi 4</td><td>Runs the C and ARM assembly control program, reads both sensors, hosts the Bluetooth server</td></tr>
+<tr><td>Nema17 stepper</td><td>XY42STH34-0354A, 1.8&deg; per step, 12 V, 0.35 A per phase</td></tr>
+<tr><td>SN754410NE</td><td>Quad half-H driver wired as two H-bridges, one per coil</td></tr>
+<tr><td>4N25 optocoupler</td><td>On/off enable for the H-bridge, so the motor stays off while the Pi boots</td></tr>
+<tr><td>AS5600</td><td>Magnetic encoder on I2C that reports the shaft angle</td></tr>
+<tr><td>IR sensor</td><td>Gives two pulses per revolution from the two-blade propeller</td></tr>
+</tbody></table></div>
+
+<h2>Documents</h2>
+<ul class="plain">
+<li><a href="docs/PARMCO_Hardware_Documentation_CP3.pdf">Hardware documentation, Checkpoint 3</a> (PDF)</li>
+<li><a href="docs/PARMCO_Software_Documentation_CP3.pdf">Software documentation, Checkpoint 3</a> (PDF)</li>
+<li><a href="docs/PARMCO_Hardware_Documentation_CP2.pdf">Hardware documentation, Checkpoint 2</a> (PDF)</li>
+<li><a href="docs/PARMCO_Software_Documentation_CP2.pdf">Software documentation, Checkpoint 2</a> (PDF)</li>
+</ul>
+
+</main>
+<footer class="site"><div>ECSE 4235 Final Project, Fall 2026. Checkpoint 3 site. The code and documentation described here were written by AI; see the <a href="ai-process.html">AI process</a> page.</div></footer>
+<script src="js/protractor.js"></script>
+</body>
+</html>

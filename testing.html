@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Testing: PARMCO</title>
+<meta name="description" content="PARMCO: a phone app that controls a Nema17 stepper motor on a Raspberry Pi 4 over Bluetooth, with encoder and IR sensor feedback.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="bar">
+<a class="wordmark" href="index.html">PAR<span>M</span>CO</a>
+<nav aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="hardware.html">Hardware</a></li><li><a href="software.html">Software</a></li><li><a href="testing.html" aria-current="page">Testing</a></li><li><a href="ai-process.html">AI process</a></li></ul></nav>
+</div></header>
+<main id="main">
+
+<h1>Testing</h1>
+<p class="lede read">Every claim the system makes is checked against something that works on a different principle. The encoder agreeing with itself proves nothing; the encoder agreeing with a protractor or a blade count does.</p>
+
+<h2>The seven tests</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Test</th><th>What it shows</th><th>Independent check</th><th>Shown at</th></tr></thead>
+<tbody>
+<tr><td>A. RPM sensing and sweep</td><td>IR, encoder and app RPM agree with the commanded speed from 10 to 100 RPM</td><td>Blade count or slow-motion video</td><td>CP2, CP3, final</td></tr>
+<tr><td>B. Open-loop missed steps</td><td>Without feedback the motor loses steps, and the step count no longer matches the shaft</td><td>Protractor and encoder angle</td><td>CP3, final</td></tr>
+<tr><td>C. Static angle accuracy</td><td>Angle targets land within one step from both directions</td><td>Printed protractor</td><td>Final</td></tr>
+<tr><td>D. Step response</td><td>How quickly and cleanly the blade moves from 0&deg; to 90&deg;</td><td>Protractor and slow-motion video</td><td>Final</td></tr>
+<tr><td>E. Disturbance rejection</td><td>Maintain mode recovers from a push at slow RPM</td><td>Blade count or video</td><td>Final</td></tr>
+<tr><td>F. Feedback hold</td><td>Coils stay off at rest and the &plusmn;1&deg; band is restored after nudges</td><td>Protractor and supply current</td><td>Final</td></tr>
+<tr><td>G. Forced desync and return to zero</td><td>Set to zero recovers after lost steps</td><td>Printed protractor</td><td>Final</td></tr>
+</tbody></table></div>
+
+<h2>Checkpoint 3</h2>
+<div class="read">
+<p>Checkpoint 3 covers Test A through the app and Test B from the app in Manual mode with the over-range unlock on. For Test B the software logs the step-count angle (<code>step_angle_deg</code>) next to the real encoder angle (<code>enc_cum_deg</code>), so the moment the two separate marks the loss of sync, and the protractor confirms where the blade actually stopped.</p>
+<p>Results for Tests A and B will be posted on this page with their raw logs and the measurement limits of the protractor and the IR sensor.</p>
+</div>
+
+<h2>How data is collected</h2>
+<ol class="steps">
+<li>Set the mode, speed or target for the test.</li>
+<li>Start logging from the app and check that the indicator shows the log file name and a running clock.</li>
+<li>Run the test while taking an independent reading: a blade count, a slow-motion video or a protractor photo.</li>
+<li>Stop logging, copy the file off the Pi, and record the file name on the run sheet.</li>
+</ol>
+
+</main>
+<footer class="site"><div>ECSE 4235 Final Project, Fall 2026. Checkpoint 3 site. The code and documentation described here were written by AI; see the <a href="ai-process.html">AI process</a> page.</div></footer>
+
+</body>
+</html>

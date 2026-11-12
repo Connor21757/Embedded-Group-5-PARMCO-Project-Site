@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hardware: PARMCO</title>
+<meta name="description" content="PARMCO: a phone app that controls a Nema17 stepper motor on a Raspberry Pi 4 over Bluetooth, with encoder and IR sensor feedback.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="bar">
+<a class="wordmark" href="index.html">PAR<span>M</span>CO</a>
+<nav aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="hardware.html" aria-current="page">Hardware</a></li><li><a href="software.html">Software</a></li><li><a href="testing.html">Testing</a></li><li><a href="ai-process.html">AI process</a></li></ul></nav>
+</div></header>
+<main id="main">
+
+<h1>Hardware</h1>
+<p class="lede read">The Pi&rsquo;s 3.3&nbsp;V logic drives a 12&nbsp;V stepper through an H-bridge. An optocoupler decides whether the H-bridge is on at all, and an encoder and an IR sensor report back.</p>
+
+<figure>
+<img src="img/schematic.png" alt="Schematic showing the DC supply, Raspberry Pi 4, 4N25 optocoupler, SN754410NE H-bridge, Nema17 coils, IR sensor and AS5600 encoder joined by a common ground rail">
+<figcaption>Checkpoint 3 schematic. The full-size version is on the last page of the <a href="docs/PARMCO_Hardware_Documentation_CP3.pdf">hardware documentation</a>.</figcaption>
+</figure>
+
+<h2>Parts list</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Component</th><th>Specification</th></tr></thead>
+<tbody>
+<tr><td>Raspberry Pi 4</td><td>3.3 V logic via Protector HAT; on-board Bluetooth</td></tr>
+<tr><td>Nema17 stepper motor</td><td>XY42STH34-0354A, 1.8&deg; step (bipolar), 12 V, 0.35 A per phase, on the 3D-printed stand</td></tr>
+<tr><td>SN754410NE</td><td>Quad half-H bridge, 1 A per channel; VCC1 5 V logic, VCC2 12 V motor; internal clamp diodes</td></tr>
+<tr><td>4N25 optocoupler</td><td>NPN phototransistor, 6-pin DIP; pin 3 NC, pin 6 unconnected</td></tr>
+<tr><td>R1</td><td>320 ohm, limits the 4N25 LED current to about 6.6 mA</td></tr>
+<tr><td>R2</td><td>10 kohm pull-down from the 4N25 emitter to ground</td></tr>
+<tr><td>C1</td><td>100 &micro;F on the 12 V rail, polarized</td></tr>
+<tr><td>C2</td><td>0.1 &micro;F on the 5 V rail</td></tr>
+<tr><td>IR sensor module</td><td>Digital output, high while a blade is detected; powered from the Pi 3.3 V pin</td></tr>
+<tr><td>AS5600 module and magnet</td><td>12-bit angle over I2C at address 0x36; DIR tied to ground; diametrically magnetized magnet on the shaft</td></tr>
+<tr><td>DC power supply</td><td>CH1 5 V (0.2 A) for VCC1, CH2 12 V (1 A) for VCC2</td></tr>
+<tr><td>Propeller</td><td>Two blades, one marked as the reference blade</td></tr>
+</tbody></table></div>
+
+<h2>Pin assignments</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Signal</th><th>BCM GPIO</th><th>Header pin</th><th>Goes to</th></tr></thead>
+<tbody>
+<tr><td>Motor enable</td><td>GPIO17</td><td>11</td><td>4N25 pin 1 through R1</td></tr>
+<tr><td>Coil inputs 1A, 2A, 3A, 4A</td><td>GPIO22, 23, 24, 25</td><td>15, 16, 18, 22</td><td>SN754410NE pins 2, 7, 10, 15</td></tr>
+<tr><td>IR pulse</td><td>GPIO27</td><td>13</td><td>IR sensor OUT</td></tr>
+<tr><td>I2C data</td><td>GPIO2</td><td>3</td><td>AS5600 SDA</td></tr>
+<tr><td>I2C clock</td><td>GPIO3</td><td>5</td><td>AS5600 SCL</td></tr>
+<tr><td>3.3 V</td><td></td><td>1</td><td>IR sensor VCC, AS5600 VCC</td></tr>
+<tr><td>Ground</td><td></td><td>6</td><td>Common ground rail</td></tr>
+</tbody></table></div>
+<p class="read">VCC1 and VCC2 come from the lab supply and never from the Pi. The 4N25 collector sits on the 5 V rail, its emitter feeds both enable pins (1 and 9) of the SN754410NE, and the coils connect to pins 3 and 6 (coil A) and 11 and 14 (coil B).</p>
+
+<h2>How it works</h2>
+<div class="read">
+<h3>Quiet start</h3>
+<p>The SN754410NE only drives current while its enable pins are high. Those pins are fed by the 4N25 phototransistor and held low by R2. While the Pi boots, GPIO17 floats or sits low, so the LED is off, the phototransistor is open, and no coil current flows whatever the 12&nbsp;V rail is doing. When the program raises GPIO17, about 6.6&nbsp;mA lights the LED, the transistor conducts, and the enables rise to roughly 5&nbsp;V. The enable is on or off only and is never PWM&rsquo;d. The grounds are common, so this is optical coupling of the enable signal, not full galvanic isolation.</p>
+<h3>Driving a bipolar stepper</h3>
+<p>Each coil sits between the two outputs of one H-bridge. An input driven high pulls its output to 12&nbsp;V and an input driven low pulls it to ground, so 1A high with 2A low pushes current one way through coil A, the opposite inputs push it the other way, and equal inputs give no current. The program steps through an 8-entry half-step table, one entry per half step: <code>0x08, 0x0C, 0x04, 0x06, 0x02, 0x03, 0x01, 0x09</code>. Bit 3 of each byte drives 1A, bit 2 drives 2A, bit 1 drives 3A and bit 0 drives 4A.</p>
+<h3>Speed</h3>
+<p>RPM is steps per second times 60 divided by 400, so the default 20 RPM is 133.3 steps per second and 100 RPM is 666.7, or 1.5&nbsp;ms between steps.</p>
+<h3>Power and decoupling</h3>
+<p>One energized coil draws about 0.3 to 0.35&nbsp;A and two draw about 0.6 to 0.7&nbsp;A, inside the 1&nbsp;A supply channel and the driver&rsquo;s 1&nbsp;A rating. C1 supplies the brief surges when coils switch, and C2 bypasses switching noise at the logic supply pin.</p>
+<h3>IR sensor</h3>
+<p>The IR sensor runs from 3.3&nbsp;V so its output is safe for the Pi. The software polls GPIO27 every millisecond and counts a low-to-high change as one blade. With two blades, RPM is 30 divided by the seconds between pulses.</p>
+<h3>AS5600 encoder</h3>
+<p>The AS5600 senses the direction of the shaft magnet and reports a 12-bit angle, 0.0879&deg; per count, about ten counts per half step. It is powered from 3.3&nbsp;V so SDA and SCL stay at levels the Pi&rsquo;s I2C pins accept, and the Pi&rsquo;s on-board 1.8&nbsp;kohm pull-ups serve the bus. Tying DIR to ground makes the angle increase when the magnet turns clockwise. The reading is relative to how the magnet sits on the shaft, so the software stores a zero offset when calibrate zero is pressed.</p>
+</div>
+
+<h2>Bring-up</h2>
+<ol class="steps">
+<li>Build the circuit with the supply off and the Pi unplugged, then check ground continuity, that VCC1 and VCC2 come only from the supply, and the polarity of C1.</li>
+<li>Turn the supply on with the Pi unplugged. VCC2 current must stay below 0.05&nbsp;A and the shaft must turn freely.</li>
+<li>Boot the Pi and watch the shaft and current: no movement, current still below 0.05&nbsp;A.</li>
+<li>Enable I2C, confirm the AS5600 answers at 0x36, and turn the propeller by hand with the motor disabled. The encoder angle should increase when it turns clockwise.</li>
+<li>Enable the motor from the app and check that the current rises and the shaft holds. Run a revolution each way, then compare the IR and encoder RPM with the commanded RPM.</li>
+<li>Disable the motor, shut down the Pi, then switch off the supply.</li>
+</ol>
+<p class="read muted">Wear eye protection whenever the propeller is turning.</p>
+
+</main>
+<footer class="site"><div>ECSE 4235 Final Project, Fall 2026. Checkpoint 3 site. The code and documentation described here were written by AI; see the <a href="ai-process.html">AI process</a> page.</div></footer>
+
+</body>
+</html>

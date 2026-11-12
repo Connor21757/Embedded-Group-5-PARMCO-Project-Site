@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Software: PARMCO</title>
+<meta name="description" content="PARMCO: a phone app that controls a Nema17 stepper motor on a Raspberry Pi 4 over Bluetooth, with encoder and IR sensor feedback.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="bar">
+<a class="wordmark" href="index.html">PAR<span>M</span>CO</a>
+<nav aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="hardware.html">Hardware</a></li><li><a href="software.html" aria-current="page">Software</a></li><li><a href="testing.html">Testing</a></li><li><a href="ai-process.html">AI process</a></li></ul></nav>
+</div></header>
+<main id="main">
+
+<h1>Software</h1>
+<p class="lede read">One C program with a small ARM assembly file runs on the Pi. Five threads share the work, and the app is the only control input.</p>
+
+<figure>
+<img src="img/software-architecture.png" alt="Diagram of five threads: main, IR, encoder, logging and Bluetooth, connected to the assembly routines, class library, I2C driver, file I/O and BlueZ, and from there to the motor, IR sensor, AS5600, CSV file and phone">
+<figcaption>The main thread steps the motor through assembly routines that call the class library. The other threads read sensors, write the log and serve the phone.</figcaption>
+</figure>
+
+<h2>Source files</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>File</th><th>Language</th><th>What it holds</th></tr></thead>
+<tbody>
+<tr><td><code>main.c</code></td><td>C</td><td>Bluetooth command server, motor control loop, angle targeting, AS5600 reading, IR RPM, CSV logging</td></tr>
+<tr><td><code>parmco_motor.s</code></td><td>ARMv7 assembly</td><td><code>enable_motor</code>, <code>step_motor</code> and <code>wait_and_step</code>, which write the coil pins and wait between steps through the class library</td></tr>
+</tbody></table></div>
+
+<h2>Commands from the app</h2>
+<p class="read">The phone sends one text command per line. Several commands in one packet are each run in order.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Message</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td><code>CMD:START</code></td><td>Enables the motor and runs it at the commanded RPM</td></tr>
+<tr><td><code>CMD:STOP</code></td><td>Disables the motor so the coils carry no current, and switches the over-range unlock off</td></tr>
+<tr><td><code>DIR:CW</code>, <code>DIR:CCW</code></td><td>Sets the direction</td></tr>
+<tr><td><code>CMD:FASTER</code>, <code>CMD:SLOWER</code></td><td>Changes the speed by 5%, held between 10 and 100 RPM unless unlocked</td></tr>
+<tr><td><code>RPM:&lt;value&gt;</code></td><td>Sets the commanded RPM; values below 10 are ignored</td></tr>
+<tr><td><code>UNLOCK:ON</code>, <code>UNLOCK:OFF</code></td><td>Over-range unlock (also <code>OVERRANGE:ON</code> and <code>OFF</code>)</td></tr>
+<tr><td><code>MODE:MANUAL</code>, <code>MODE:MAINTAIN</code></td><td>Stores the mode, which is written to the log</td></tr>
+<tr><td><code>CALIBRATE:ZERO</code></td><td>Stores the current encoder angle as zero</td></tr>
+<tr><td><code>SET:ZERO</code></td><td>Moves the blade to 0&deg; using the encoder (needs calibration)</td></tr>
+<tr><td><code>ANGLE:&lt;degrees&gt;</code></td><td>Moves the blade to the angle by the shorter way (needs calibration)</td></tr>
+<tr><td><code>LOG:START</code>, <code>LOG:STOP</code></td><td>Starts and stops the CSV log</td></tr>
+</tbody></table></div>
+
+<h2>Telemetry to the app</h2>
+<p class="read">Every 0.15&nbsp;s the Pi sends one line:</p>
+<pre><code>TEL:ir_rpm,enc_rpm,enc_angle,calibration,log_file,elapsed
+TEL:20.1,19.8,123.4,Calibrated,log_2026-11-12_10-15-00.csv,12s</code></pre>
+
+<h2>Angle targets</h2>
+<p class="read">While an angle target is active, each loop pass computes the error between the encoder angle and the target, wrapped to between &minus;180&deg; and +180&deg; so the blade always takes the shorter way round. The step direction follows the sign of the error, the speed drops to 12 RPM inside 5&deg; so the encoder keeps up, and when the error is within 0.9&deg; (one half step) the Pi stops and disables the motor.</p>
+
+<h2>Log file</h2>
+<p class="read">Each log is a CSV file named <code>log_YYYY-MM-DD_HH-MM-SS.csv</code>, written about every 10&nbsp;ms.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>time_s</td><td>Seconds since logging started</td></tr>
+<tr><td>mode</td><td><code>position</code> during an angle move, otherwise <code>Manual</code> or <code>Maintain</code></td></tr>
+<tr><td>cmd_rpm, cmd_angle_deg</td><td>Commanded speed and angle target</td></tr>
+<tr><td>step_count, step_angle_deg</td><td>Half steps commanded since calibrate zero, and that count times 0.9&deg;</td></tr>
+<tr><td>enc_angle_deg, enc_cum_deg</td><td>Encoder angle, and the same angle unwrapped past 360&deg;</td></tr>
+<tr><td>ir_rpm, enc_rpm, app_rpm</td><td>RPM from the IR sensor, from the encoder, and the value sent to the app</td></tr>
+<tr><td>enable</td><td>1 while the motor is enabled</td></tr>
+</tbody></table></div>
+
+<h2>Libraries and attribution</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Library</th><th>Provider</th><th>Why it is needed</th></tr></thead>
+<tbody>
+<tr><td>E4235 class library</td><td>ECSE 4235 instructor. Not written by AI.</td><td>All GPIO access goes through it, from C and from assembly</td></tr>
+<tr><td>Linux I2C interface</td><td>Linux kernel</td><td>Reads the AS5600 angle over <code>/dev/i2c-1</code></td></tr>
+<tr><td>BlueZ (libbluetooth)</td><td>BlueZ project, bluez.org</td><td>RFCOMM serial link to the Android app</td></tr>
+<tr><td>POSIX threads, signals, system calls</td><td>glibc and Linux</td><td>Five threads, clean shutdown on Ctrl+C, non-blocking device and socket I/O</td></tr>
+<tr><td>C math, time and standard library</td><td>glibc</td><td>Angle math, monotonic timing, log files and command parsing</td></tr>
+</tbody></table></div>
+<p class="read">The software documentation explains how each library works. It is in the <a href="docs/PARMCO_Software_Documentation_CP3.pdf">Checkpoint 3 software PDF</a>.</p>
+
+<h2>Build and run</h2>
+<pre><code>gcc -o parmco main.c parmco_motor.s -lbluetooth -lpthread -lm</code></pre>
+<p class="read">Link the class library the way the course instructions specify, and enable I2C on the Pi. The motor starts disabled, the program has no keyboard input, and Ctrl+C stops it with the motor disabled.</p>
+
+<h2>Code flags</h2>
+<p class="read">Human changes to code are wrapped in <code>[HUMAN EDIT START]</code> and <code>[END HUMAN EDIT]</code> comments, with the AI original kept as a comment. Both source files were scanned and contain no such markers, so both are the unmodified AI original.</p>
+
+</main>
+<footer class="site"><div>ECSE 4235 Final Project, Fall 2026. Checkpoint 3 site. The code and documentation described here were written by AI; see the <a href="ai-process.html">AI process</a> page.</div></footer>
+
+</body>
+</html>
